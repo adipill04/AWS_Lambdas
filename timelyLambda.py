@@ -28,7 +28,7 @@ def lambda_handler(event, context):
         ':value' : {'S': 'TRUE'}
         }
     )
-    
+    #Updates course status in database & sends notification to subscribed users
     for obj in response['Items']:
         dbStatus = obj['status']['S']
         apiStatus = getAPI(obj['subjectCode']['S'], obj['courseId']['S'])
