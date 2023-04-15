@@ -2,7 +2,6 @@ import json
 import boto3
 import requests
 
-
 def lambda_handler(event, context):
     def getAPI(subjectCode,courseID):
       currStatus = ''
@@ -16,11 +15,11 @@ def lambda_handler(event, context):
       elif('WAITLISTED' in currStatus):
           return 'WAITLISTED'
       return 'CLOSED'
-      
-    #Create a boto3 client for DynamoDB
-    dynamodb = boto3.client('dynamodb')
     
-    #Query courses with subscribers
+    #Create a boto3 client for DynamoDB & sns
+    dynamodb = boto3.client('dynamodb')
+    sns = boto3.client('sns')
+    
     response = dynamodb.query(
         TableName = 'coursesWithStatuses',
         IndexName = 'hasSubscribers-index',
@@ -30,7 +29,6 @@ def lambda_handler(event, context):
         }
     )
     
-    #Compare statuses of courses in API vs dynamodb table
     for obj in response['Items']:
         dbStatus = obj['status']['S']
         apiStatus = getAPI(obj['subjectCode']['S'], obj['courseId']['S'])
@@ -42,7 +40,15 @@ def lambda_handler(event, context):
                 ExpressionAttributeNames={'#s': 'status'},
                 ExpressionAttributeValues={':new_status': {'S': apiStatus}}
             )
-        
+            allARN = sns.list_topics()
+            search_arn = obj['courseId']['S']
+            matching_topics = [topic for topic in allARN['Topics'] if search_arn in topic['TopicArn']]
+            res = sns.publish(
+                TopicArn = matching_topics[0]['TopicArn'],
+                Message = 'The status of the course {} has changed from {} to {}'.format(obj['courseName']['S'],dbStatus,apiStatus),
+                Subject = 'Course Status Change!'
+            )
+
 
 
 
